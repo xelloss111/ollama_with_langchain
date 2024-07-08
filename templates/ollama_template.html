@@ -1,0 +1,97 @@
+<html>
+    <head>
+        <title></title>
+        <link rel="stylesheet" href="/stylesheets/style.css" />
+        <script src="https://code.jquery.com/jquery-3.7.1.js" integrity="sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4=" crossorigin="anonymous"></script>
+    </head>
+    <body>
+        <h1></h1>
+        <p>LLM TEST (Ollama + Lang Chain)</p>
+        <p>USE MODEL : heegyu/EEVE-Korean-Instruct-10.8B-v1.0-GGUF -> ggml-model-Q5_K_M.gguf</p>
+        <div>
+            <span>질문 내용 : &nbsp;&nbsp;&nbsp;</span><input type="text" name="question" id="question" style="width: 300px; margin-right: 15px;" />
+            <button type="submit" id="requestButton">질문하기</button>&nbsp;&nbsp;&nbsp;
+            <button type="submit" id="deleteButton">답변영역지우개</button><br />
+            <textarea name="answer" id="answer" style="width: 100%; height: 90%;"></textarea>
+        </div>
+        <script>
+
+            const question = document.querySelector("#question");
+            const answer = document.querySelector("#answer");
+            const requestButton = document.querySelector("#requestButton");
+            const deleteButton = document.querySelector("#deleteButton");
+
+            deleteButton.addEventListener("click", async function () {
+                answer.value = '';
+            })
+
+            requestButton.addEventListener("click", async function () {                
+                // var chunkedUrl = "http://localhost:3001/users/chat";
+                var chunkedUrl = "http://10.200.80.144:3001/users/chat";
+
+                // const response = await fetch(chunkedUrl, {
+                fetch(chunkedUrl, {
+                    method: "POST",
+                    body: JSON.stringify({ "question": question.value }),
+                    headers: {
+                        "content-type": "application/json; charset=UTF-8",
+                    },
+                })
+                .then(processChunkedResponse)
+                .then(onChunkedResponseComplete)
+                .catch(onChunkedResponseError)
+            });
+
+            function onChunkedResponseComplete(result) {
+                console.log('all done!', result)
+            }
+
+            function onChunkedResponseError(err) {
+                console.error(err)
+            }
+
+            function processChunkedResponse(response) {
+                answer.value += '\r\n\r\n다른 질문을 처리하는 중이라면 답변이 늦어질 수 있어요\r\n\r\n';
+                var text = '';
+                var reader = response.body.getReader()
+                var decoder = new TextDecoder();
+                
+                return readChunk();
+
+                function readChunk() {
+                    return reader.read().then(appendChunks);
+                }
+
+                function appendChunks(result) {
+                    let chunk = decoder.decode(result.value || new Uint8Array, {stream: !result.done});
+                    // console.log('chunk : ', chunk);                                 
+                    // console.log('got chunk of', chunk.length, 'bytes')
+                    text += chunk;
+                    // console.log('text so far is', text.length, 'bytes\n');
+                    if (result.done) {
+                        console.log('returning')
+                        return text;
+                    } else {
+                    console.log('recursing')                           
+                    if (chunk.indexOf('{') != -1) {             
+                        if (chunk.indexOf(`\n`) != -1) {
+                            tempArr = chunk.split('\n')
+                            for (let i = 0; i < tempArr.length; i++) {
+                                if (tempArr[i].indexOf('{') != -1) {
+                                    temp = JSON.parse(tempArr[i]);
+                                    if (temp.content != undefined) answer.value = answer.value + temp.content;
+                                }
+                            }
+                        } else {
+                            let temp = JSON.parse(chunk);
+                            if (temp.content != undefined) answer.value = answer.value + temp.content;
+                        }          
+                        answer.scrollTop = answer.scrollHeight;
+                    }
+                    return readChunk();
+                    }
+                }
+            }
+        </script>
+    </body>
+</html>

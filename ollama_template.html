@@ -1,0 +1,77 @@
+<html>
+    <head>
+        <title></title>
+        <link rel="stylesheet" href="/stylesheets/style.css" />
+        <script src="https://code.jquery.com/jquery-3.7.1.js" integrity="sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4=" crossorigin="anonymous"></script>
+    </head>
+    <body>
+        <h1></h1>
+        <p>LLM TEST</p>
+        <div>
+            <span>질문 내용 : &nbsp;&nbsp;&nbsp;</span><input type="text" name="question" id="question" style="width: 300px; margin-right: 15px;" /><button type="submit" id="requestButton">upload</button><br />
+            <input type="text-area" name="answer" id="answer" style="width: 500px; height: 500px; margin-right: 15px;" />
+        </div>
+        <script>
+
+            const question = document.querySelector("#question");
+            const answer = document.querySelector("#answer");
+            const requestButton = document.querySelector("#requestButton");
+
+            requestButton.addEventListener("click", async function () {
+                var chunkedUrl = "/user/chat";
+
+                // const response = await fetch(chunkedUrl, {
+                fetch(chunkedUrl, {
+                    method: "POST",
+                    body: JSON.stringify({ question: question.value }),
+                    headers: {
+                        "content-type": "application/json; charset=UTF-8",
+                    },
+                })
+                .then(processChunkedResponse)
+                .then(onChunkedResponseError)
+                .then(onChunkedResponseComplete)
+
+                // console.log(response);
+            });
+
+            function onChunkedResponseComplete(result) {
+                console.log("all done!", result);
+            }
+
+            function onChunkedResponseError(err) {
+                console.error(err);
+            }
+
+            function processChunkedResponse(response) {
+                var text = "";
+                console.log(response);
+                var reader = response.body.getReader();
+                var decoder = new TextDecoder();
+
+                return readChunk();
+
+                function readChunk() {
+                    return reader.read().then(appendChunks);
+                }
+
+                function appendChunks(result) {
+                    console.log(result);
+                    var chunk = decoder.decode(result.value || new Uint8Array(), { stream: !result.done });
+                    console.log("got chunk of", chunk.length, "bytes");
+                    console.log(chunk);
+                    text += chunk;
+                    console.log("text so far is", text.length, "bytes\n");
+                    if (result.done) {
+                        console.log("returning");
+                        answer.value = text;
+                        //- return text;
+                    } else {
+                        console.log("recursing");
+                        return readChunk();
+                    }
+                }
+            }
+        </script>
+    </body>
+</html>
